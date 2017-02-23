@@ -28,6 +28,18 @@ B64_ALTCHARS = "-_"
 NONCE_TIMEOUT = 10
 
 
+def ctsc(lhs, rhs):
+    """
+    Perform string comparisons in constant-time. Roughly two orders of magnitude
+    slower than strict built-in equality checking (10us vs 100ns) for a SHA256
+    digest.
+    """
+    equal = True
+    for i, j in zip(lhs, rhs):
+        equal &= (i == j)
+    return equal and (len(lhs) == len(rhs))
+
+
 def assert_common_form(event):
     """
     Ensure that the event contains the appropriate structure and parameters.
@@ -60,7 +72,9 @@ def fetch_object(event):
                               request, sort_keys=True),
                           hashlib.sha256).digest()
 
-    if server_sig != client_sig:
+    # Perform constant-time string comparison on the supplied and generated
+    # HMACs.
+    if not ctsc(server_sig, client_sig):
         return "UNAUTHORIZED: Signature mismatch"
 
     # Confirm that the validity interval is valid.
